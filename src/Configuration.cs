@@ -22,8 +22,6 @@
 
         public string homePath;
 
-        readonly string[] args;
-
         static Configuration()
         {
 
@@ -48,20 +46,22 @@
                 logger.Debug("Setting movements");
 
                 current.SimulateMovements = (Array.IndexOf(Core.args, "--simulate") > -1);
+
+
             }
             return current;
-
+        
         }
 
-        [ConfigurationProperty("DefaultTargetPath", IsRequired = true, IsKey = true)]
+        [ConfigurationProperty("DefaultTargetPath", IsRequired = true)]
         public string DefaultTargetPath
         {
-
+            
             get { return (base["DefaultTargetPath"] as string) != null ? (base["DefaultTargetPath"] as string) : (homePath + Path.DirectorySeparatorChar + "Media" + Path.DirectorySeparatorChar); }
 
         }
 
-        [ConfigurationProperty("EpisodeNameFormat", IsRequired = true, IsKey = true)]
+        [ConfigurationProperty("EpisodeNameFormat", IsRequired = true)]
         public string EpisodeNameFormat
         {
 
@@ -69,7 +69,7 @@
 
         }
 
-        [ConfigurationProperty("SeriesPathFormat", IsRequired = true, IsKey = true)]
+        [ConfigurationProperty("SeriesPathFormat", IsRequired = true)]
         public string SeriesPathFormat
         {
 
@@ -77,10 +77,12 @@
 
         }
 
-        [ConfigurationProperty("EpisodeTargetPaths")]
-        public EpisodePathConfigCollection EpisodeTargetPaths
+        [ConfigurationProperty("ShowTargetPaths", IsDefaultCollection = true, IsRequired = false)]
+        public ShowTargetPathConfigCollection ShowTargetPaths
         {
-            get { return (base["EpisodeTargetPaths"] as EpisodePathConfigCollection); }
+
+            get { return (base["ShowTargetPaths"] as ShowTargetPathConfigCollection); }
+        
         }
 
     }

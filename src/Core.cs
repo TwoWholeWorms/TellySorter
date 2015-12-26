@@ -60,9 +60,9 @@
                 throw new Exception(string.Format("The default target path `{0}` does not exist.", config.DefaultTargetPath));
             }
 
-            foreach (var pathConfig in config.EpisodeTargetPaths) {
+            foreach (var pathConfig in config.ShowTargetPaths) {
                 if (!Directory.Exists(pathConfig.Path)) {
-                    throw new Exception(string.Format("The episode target path `{0}` for TVDB episode ids `{1}` does not exist.", pathConfig.Path, string.Join(",", pathConfig.EpisodeIds)));
+                    throw new Exception(string.Format("The show target path `{0}` for TVDB episode ids `{1}` does not exist.", pathConfig.Path, string.Join(",", pathConfig.ShowIds)));
                 }
             }
 
@@ -118,24 +118,24 @@
         public void SpitOutUsage()
         {
 
-            logger.Info("Usage: TellySorter.exe <add|remove|set|process> [source|target] [--simulate]");
-            logger.Info("");
-            logger.Info("Examples:");
-            logger.Info("");
-            logger.Info("    Source folders:");
-            logger.Info("        TellySorter.exe add source /path/to/source/file/directory/to/add/to/search/list [--simulate]");
-            logger.Info("        TellySorter.exe remove source /path/to/source/file/directory/to/remove/from/search/list [--simulate]");
-            logger.Info("");
-            logger.Info("    Set the default target folder:");
-            logger.Info("        TellySorter.exe set default-target /path/to/target/file/directory/to/add/to/search/list [--simulate]");
-            logger.Info("");
-            logger.Info("    Episode-specific destination folders:");
-            logger.Info("        TellySorter.exe add target /path/to/target/file/directory/to/add/to/search/list <tvdb_series_id> [--simulate]");
-            logger.Info("        TellySorter.exe remove target /path/to/target/file/directory/to/remove/from/search/list <tvdb_series_id> [--simulate]");
-            logger.Info("");
-            logger.Info("    Process files:");
-            logger.Info("        TellySorter.exe process [--simulate]");
-            logger.Info("");
+            logger.Warn("Usage: TellySorter.exe <add|remove|set|process> [source|target] [--simulate]");
+            logger.Warn("");
+            logger.Warn("Examples:");
+            logger.Warn("");
+            logger.Warn("    Source folders:");
+            logger.Warn("        TellySorter.exe add source /path/to/source/file/directory/to/add/to/search/list [--simulate]");
+            logger.Warn("        TellySorter.exe remove source /path/to/source/file/directory/to/remove/from/search/list [--simulate]");
+            logger.Warn("");
+            logger.Warn("    Set the default target folder:");
+            logger.Warn("        TellySorter.exe set default-target /path/to/target/file/directory/to/add/to/search/list [--simulate]");
+            logger.Warn("");
+            logger.Warn("    Episode-specific destination folders:");
+            logger.Warn("        TellySorter.exe add target /path/to/target/file/directory/to/add/to/search/list <tvdb_series_id> [--simulate]");
+            logger.Warn("        TellySorter.exe remove target /path/to/target/file/directory/to/remove/from/search/list <tvdb_series_id> [--simulate]");
+            logger.Warn("");
+            logger.Warn("    Process files:");
+            logger.Warn("        TellySorter.exe process [--simulate]");
+            logger.Warn("");
 
             throw new Exception("Invalid usage");
 

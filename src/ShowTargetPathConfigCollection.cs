@@ -5,12 +5,12 @@ namespace TellySorter
     using System.Configuration;
     using System.Collections.Generic;
 
-    [ConfigurationCollection(typeof(EpisodePathConfigCollection), AddItemName = "EpisodeTargetPath", CollectionType = ConfigurationElementCollectionType.BasicMap)]
-    public class EpisodePathConfigCollection : ConfigurationElementCollection, IEnumerable<EpisodePathConfigurationElement>
+    [ConfigurationCollection(typeof(ShowTargetPathConfigCollection), AddItemName = "ShowTargetPath", CollectionType = ConfigurationElementCollectionType.BasicMap)]
+    public class ShowTargetPathConfigCollection : ConfigurationElementCollection, IEnumerable<ShowTargetPathConfigurationElement>
     {
-        public EpisodePathConfigurationElement this[int index]
+        public ShowTargetPathConfigurationElement this[int index]
         {
-            get { return (EpisodePathConfigurationElement)BaseGet(index); }
+            get { return (ShowTargetPathConfigurationElement)BaseGet(index); }
             set
             {
                 if (BaseGet(index) != null)
@@ -21,7 +21,7 @@ namespace TellySorter
             }
         }
 
-        public void Add(EpisodePathConfigurationElement serviceConfig)
+        public void Add(ShowTargetPathConfigurationElement serviceConfig)
         {
             BaseAdd(serviceConfig);
         }
@@ -33,15 +33,15 @@ namespace TellySorter
 
         protected override ConfigurationElement CreateNewElement()
         {
-            return new EpisodePathConfigurationElement();
+            return new ShowTargetPathConfigurationElement();
         }
 
         protected override object GetElementKey(ConfigurationElement element)
         {
-            return ((EpisodePathConfigurationElement)element).Path;
+            return ((ShowTargetPathConfigurationElement)element).Path;
         }
 
-        public void Remove(EpisodePathConfigurationElement pathConfig)
+        public void Remove(ShowTargetPathConfigurationElement pathConfig)
         {
             BaseRemove(pathConfig.Path);
         }
@@ -56,12 +56,12 @@ namespace TellySorter
             BaseRemove(name);
         }
 
-        public new IEnumerator<EpisodePathConfigurationElement> GetEnumerator()
+        public new IEnumerator<ShowTargetPathConfigurationElement> GetEnumerator()
         {
             int count = base.Count;
             for (int i = 0; i < count; i++)
             {
-                yield return base.BaseGet(i) as EpisodePathConfigurationElement;
+                yield return base.BaseGet(i) as ShowTargetPathConfigurationElement;
             }
         }
 
