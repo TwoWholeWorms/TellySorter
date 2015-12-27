@@ -30,6 +30,9 @@
 
         public override int Run(string[] remainingArguments)
         {
+            
+            Initialise();
+
             if (remainingArguments.Length < 1 || remainingArguments.Length > 2) {
                 throw new ConsoleHelpAsException("Invalid arguments");
             }
@@ -50,9 +53,13 @@
                         throw new ArgumentException(string.Format("Source path `{0}` has already been added", remainingArguments[1]));
                     }
 
-                    SqliteManager.AddSourcePath(remainingArguments[1]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: New source path `{0}` would be added", remainingArguments[1]));
+                    } else {
+                        SqliteManager.AddSourcePath(remainingArguments[1]);
 
-                    logger.Info(string.Format("New source path `{0}` added", remainingArguments[1]));
+                        logger.Info(string.Format("New source path `{0}` added", remainingArguments[1]));
+                    }
 
                     break;
 
@@ -65,9 +72,13 @@
                         throw new ArgumentException(string.Format("Source path `{0}` is not in the database", remainingArguments[1]));
                     }
 
-                    SqliteManager.RemoveSourcePath(remainingArguments[1]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: Source path `{0}` would be removed", remainingArguments[1]));
+                    } else {
+                        SqliteManager.RemoveSourcePath(remainingArguments[1]);
 
-                    logger.Info(string.Format("Source path `{0}` removed", remainingArguments[1]));
+                        logger.Info(string.Format("Source path `{0}` removed", remainingArguments[1]));
+                    }
 
                     break;
 

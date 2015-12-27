@@ -7,6 +7,7 @@
     using System.Collections.Generic;
     using System.IO;
     using TellySorter.Utilities;
+    using Mono.Data.Sqlite;
 
     class Core
     {
@@ -22,9 +23,12 @@
 
             try {
                 var commands = GetCommands();
-                return ConsoleCommandDispatcher.DispatchCommand(commands, args, Console.Out);
+                int result = ConsoleCommandDispatcher.DispatchCommand(commands, args, Console.Out);
+                SqliteManager.CloseConnection();
+                return result;
             } catch (Exception e) {
                 logger.Fatal(e);
+                SqliteManager.CloseConnection();
             }
  
             return 1;

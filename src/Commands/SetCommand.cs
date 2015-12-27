@@ -32,6 +32,9 @@
 
         public override int Run(string[] remainingArguments)
         {
+            
+            Initialise();
+
             if (remainingArguments.Length != 2) {
                 throw new ConsoleHelpAsException("The variable name and value are required");
             }
@@ -45,34 +48,50 @@
                         throw new ConsoleHelpAsException(string.Format("The directory `{0}` does not exist", remainingArguments[1]));
                     }
 
-                    SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
-                    config.DefaultTargetPath = remainingArguments[1];
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: `{0}` would be set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    } else {
+                        SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
+                        config.DefaultTargetPath = remainingArguments[1];
 
-                    logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                        logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    }
 
                     break;
 
                 case "EpisodeFileFormat":
-                    SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
-                    config.EpisodeFileFormat = remainingArguments[1];
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: `{0}` would be set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    } else {
+                        SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
+                        config.EpisodeFileFormat = remainingArguments[1];
 
-                    logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                        logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    }
 
                     break;
 
                 case "SeasonFolderFormat":
-                    SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
-                    config.SeasonFolderFormat = remainingArguments[1];
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: `{0}` would be set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    } else {
+                        SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
+                        config.SeasonFolderFormat = remainingArguments[1];
 
-                    logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                        logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    }
 
                     break;
 
                 case "SeriesFolderFormat":
-                    SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
-                    config.SeasonFolderFormat = remainingArguments[1];
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: `{0}` would be set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    } else {
+                        SqliteManager.SetConfigValue(remainingArguments[0], remainingArguments[1]);
+                        config.SeasonFolderFormat = remainingArguments[1];
 
-                    logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                        logger.Info(string.Format("`{0}` set to `{1}`", remainingArguments[0], remainingArguments[1]));
+                    }
 
                     break;
 

@@ -20,3 +20,10 @@ Step le un is to go and net yourself an API key from http://thetvdb.com/?tab=api
     mono TellySorter.exe set ApiKey <your_api_key_here>
 
 This will store your API key in the database and allow the rest of the app to work.
+
+
+
+## Acknowledgements
+
+Props to Jer Vannevel for [TVDBSharp](https://github.com/Vannevelj/TVDBSharp), and to [the TV DB](http://www.thetvdb.com/)
+themselves for providing such a brilliant API and user-editable database for identifying things.

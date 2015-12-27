@@ -32,6 +32,9 @@
 
         public override int Run(string[] remainingArguments)
         {
+
+            Initialise();
+
             if (remainingArguments.Length < 1 || remainingArguments.Length > 3) {
                 throw new ConsoleHelpAsException("Not enough arguments");
             }
@@ -56,9 +59,13 @@
                         throw new ArgumentException(string.Format("Show `{0}` is already ignored", remainingArguments[1]));
                     }
 
-                    SqliteManager.AddShowIgnore(remainingArguments[1]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: Show `{0}` would be ignored", remainingArguments[1]));
+                    } else {
+                        SqliteManager.AddShowIgnore(remainingArguments[1]);
 
-                    logger.Info(string.Format("Show `{0}` ignored", remainingArguments[1]));
+                        logger.Info(string.Format("Show `{0}` ignored", remainingArguments[1]));
+                    }
 
                     break;
 
@@ -77,9 +84,13 @@
                         throw new ArgumentException(string.Format("Show `{0}` is not being ignored", remainingArguments[1]));
                     }
 
-                    SqliteManager.RemoveShowIgnore(remainingArguments[1]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: Show `{0}` would be unignored", remainingArguments[1]));
+                    } else {
+                        SqliteManager.RemoveShowIgnore(remainingArguments[1]);
 
-                    logger.Info(string.Format("Show `{0}` unignored", remainingArguments[1]));
+                        logger.Info(string.Format("Show `{0}` unignored", remainingArguments[1]));
+                    }
 
                     break;
 
@@ -97,9 +108,13 @@
                         throw new ConsoleHelpAsException(string.Format("The directory `{0}` does not exist", remainingArguments[2]));
                     }
 
-                    SqliteManager.SetShowSpecificTarget(remainingArguments[1], remainingArguments[2]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: Show `{0}` would be set to be moved to `{1}`", remainingArguments[1], remainingArguments[2]));
+                    } else {
+                        SqliteManager.SetShowSpecificTarget(remainingArguments[1], remainingArguments[2]);
 
-                    logger.Info(string.Format("Show `{0}` set to be moved to `{1}`", remainingArguments[1], remainingArguments[2]));
+                        logger.Info(string.Format("Show `{0}` set to be moved to `{1}`", remainingArguments[1], remainingArguments[2]));
+                    }
 
                     break;
 
@@ -114,9 +129,13 @@
                         throw new ConsoleHelpAsException(string.Format("`{0}` is not a valid TVDB show ID.", remainingArguments[1]));
                     }
 
-                    SqliteManager.RemoveShowSpecificTarget(remainingArguments[1]);
+                    if (Simulate) {
+                        logger.Info(string.Format("Simulated: Show `{0}` would be set to be moved to the default target path `{1}`", remainingArguments[1], config.DefaultTargetPath));
+                    } else {
+                        SqliteManager.RemoveShowSpecificTarget(remainingArguments[1]);
 
-                    logger.Info(string.Format("Show `{0}` will now be moved to the default target path `{1}`", remainingArguments[1], config.DefaultTargetPath));
+                        logger.Info(string.Format("Show `{0}` will now be moved to the default target path `{1}`", remainingArguments[1], config.DefaultTargetPath));
+                    }
 
                     break;
 
