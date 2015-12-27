@@ -5,7 +5,9 @@
     using System;
     using System.Configuration;
     using System.Collections.Generic;
+    using Mono.Data.Sqlite;
     using System.IO;
+    using TellySorter.Commands;
 
     public class Configuration : ConfigurationSection
     {
@@ -15,12 +17,18 @@
         readonly static Logger logger = LogManager.GetCurrentClassLogger();
 
         static Configuration current = null;
+        static AbstractConsoleCommand command = null;
 
         public string[] SourcePaths { get; set; }
+        public string DefaultTargetPath { get; set; }
+        public string EpisodeFileFormat { get; set; }
+        public string SeasonFolderFormat { get; set; }
+        public string SeriesFolderFormat { get; set; }
+        public string ApiKey { get; set; }
 
-        public bool SimulateMovements { get; set; }
+        public string HomePath;
 
-        public string homePath;
+        string dbFile;
 
         static Configuration()
         {
@@ -29,60 +37,57 @@
 
         public static Configuration GetConfig()
         {
+            return current;
+        }
+
+        public static Configuration GetConfig(AbstractConsoleCommand command)
+        {
 
             if (current == null) {
-                logger.Debug("Getting home directory");
+                logger.Debug("Initialising for OS `{0}`", Environment.OSVersion.Platform);
 
-                string homePath = (Environment.OSVersion.Platform == PlatformID.Unix ||
-                    Environment.OSVersion.Platform == PlatformID.MacOSX)
+                logger.Debug("Getting home directory");
+                string homePath = ((Environment.OSVersion.Platform == PlatformID.Unix) ||
+                    (Environment.OSVersion.Platform == PlatformID.MacOSX))
                     ? Environment.GetEnvironmentVariable("HOME")
                     : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 
                 logger.Debug("Loading data from config file");
 
                 current = ConfigurationManager.GetSection(Configuration.SECTION_NAME) as Configuration;
-                current.homePath = homePath;
+                current.HomePath = homePath;
 
-                logger.Debug("Setting movements");
+                logger.Debug("Getting DB");
 
-                current.SimulateMovements = (Array.IndexOf(Core.args, "--simulate") > -1);
+                current.DbFile = command.DbFile;
 
+                Configuration.command = command;
+                SqliteConnection conn = SqliteManager.GetConnection();
 
+                current.DefaultTargetPath = SqliteManager.GetConfigValue("DefaultTargetPath");
+                current.EpisodeFileFormat = SqliteManager.GetConfigValue("EpisodeFileFormat");
+                current.SeasonFolderFormat = SqliteManager.GetConfigValue("SeasonFolderFormat");
+                current.SeriesFolderFormat = SqliteManager.GetConfigValue("SeriesFolderFormat");
+                current.ApiKey = SqliteManager.GetConfigValue("ApiKey");
             }
             return current;
-        
+
         }
 
-        [ConfigurationProperty("DefaultTargetPath", IsRequired = true)]
-        public string DefaultTargetPath
+        [ConfigurationProperty("DbFile", IsRequired = true)]
+        public string DbFile
         {
             
-            get { return (base["DefaultTargetPath"] as string) != null ? (base["DefaultTargetPath"] as string) : (homePath + Path.DirectorySeparatorChar + "Media" + Path.DirectorySeparatorChar); }
+            get {
+                if (dbFile == null) {
+                    DbFile = (base["DbFile"] as string) != null ? (base["DbFile"] as string) : "TellySorter.db";
+                }
+                return dbFile;
+            }
+            set {
+                dbFile = value;
+            }
 
-        }
-
-        [ConfigurationProperty("EpisodeNameFormat", IsRequired = true)]
-        public string EpisodeNameFormat
-        {
-
-            get { return (base["EpisodeNameFormat"] as string) != null ? (base["EpisodeNameFormat"] as string) : ("${seriesName} - s${seasonNumberPadded}e${episodeNumberPadded} - ${episodeName}.${fileExtension}"); }
-
-        }
-
-        [ConfigurationProperty("SeriesPathFormat", IsRequired = true)]
-        public string SeriesPathFormat
-        {
-
-            get { return (base["SeriesPathFormat"] as string) != null ? (base["SeriesPathFormat"] as string) : ("${seriesName}" + Path.DirectorySeparatorChar + "Season ${seasonNumberPadded}" + Path.DirectorySeparatorChar); }
-
-        }
-
-        [ConfigurationProperty("ShowTargetPaths", IsDefaultCollection = true, IsRequired = false)]
-        public ShowTargetPathConfigCollection ShowTargetPaths
-        {
-
-            get { return (base["ShowTargetPaths"] as ShowTargetPathConfigCollection); }
-        
         }
 
     }
