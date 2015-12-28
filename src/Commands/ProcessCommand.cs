@@ -83,7 +83,7 @@
 
         void ProcessDirectory(string path)
         {
-            string targetFramework = Path.Combine(config.DefaultTargetPath, Path.Combine(config.SeriesFolderFormat, Path.Combine(config.SeasonFolderFormat, config.EpisodeFileFormat)));
+            string targetFramework = Path.Combine(config.SeriesFolderFormat, Path.Combine(config.SeasonFolderFormat, config.EpisodeFileFormat));
 
             string[] files = Directory.GetFiles(path);
             foreach (var file in files) {
@@ -196,17 +196,29 @@
                     targetPath = targetPath.Replace("${episodeNumberPadded}", episode.EpisodeNumber.ToString("D2"));
                     targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
 
-                    if (targetPath.ToLower() == file.ToLower()) {
+                    string basePath = config.DefaultTargetPath;
+                    var rules = SqliteManager.GetRulesByTvdbShowId(series.TvdbShowId);
+                    if (rules.Count > 0) {
+                        foreach (var rule in rules) {
+                            if (rule.Type == "target") {
+                                basePath = rule.Path;
+                                break;
+                            }
+                        }
+                    }
+
+                    string finalLocation = Path.Combine(basePath, targetPath);
+                    if (finalLocation.ToLower() == file.ToLower()) {
                         logger.Info("File `{0}` is already where it should be :)", file);
                         successfullyProcessedFiles++;
-                    } else if (System.IO.File.Exists(targetPath)) {
-                        logger.Error("Target file `{0}` already exists!", targetPath);
+                    } else if (System.IO.File.Exists(finalLocation)) {
+                        logger.Error("Target file `{0}` already exists!", finalLocation);
                         erroredFiles++;
                     } else if (Simulate) {
-                        logger.Info(string.Format("Simulated move: {0} -> {1}", file, targetPath));
+                        logger.Info(string.Format("Simulated move: {0} -> {1}", file, finalLocation));
                         successfullyProcessedFiles++;
                     } else {
-                        string dirTree = Path.GetDirectoryName(targetPath);
+                        string dirTree = Path.GetDirectoryName(finalLocation);
                         if (!Directory.Exists(dirTree)) {
                             try {
                                 logger.Debug("Creating directory `{0}`", dirTree);
@@ -219,14 +231,14 @@
                             }
                         }
                         try {
-                            System.IO.File.Move(file, targetPath);
+                            System.IO.File.Move(file, finalLocation);
                         } catch (Exception e) {
-                            logger.Error(string.Format("Unable to move file `{0}` to `{1}`", file, targetPath));
+                            logger.Error(string.Format("Unable to move file `{0}` to `{1}`", file, finalLocation));
                             logger.Error(e);
                             erroredFiles++;
                             continue;
                         }
-                        logger.Info(string.Format("Moved: {0} -> {1}", file, targetPath));
+                        logger.Info(string.Format("Moved: {0} -> {1}", file, finalLocation));
                         successfullyProcessedFiles++;
                     }
                 }
