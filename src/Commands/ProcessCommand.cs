@@ -16,7 +16,8 @@
 
         readonly static Logger logger = LogManager.GetCurrentClassLogger();
 
-        readonly static List<string> mimeTypes = new List<string>() {
+        // This list contains only stuff we actually want to process
+        readonly static List<string> processMimeTypes = new List<string>() {
             "taglib/avi",
             "taglib/mkv",
             "taglib/mp4",
@@ -58,9 +59,17 @@
 
             logger.Info("");
             if (erroredFiles < 1) {
-                logger.Info("Woooo! {0} files were found and sorted successfully!", successfullyProcessedFiles);
+                if (Simulate) {
+                    logger.Info("Woooo! {0} files were simulated successfully!", successfullyProcessedFiles);
+                } else {
+                    logger.Info("Woooo! {0} files were found and sorted successfully!", successfullyProcessedFiles);
+                }
             } else {
-                logger.Info(string.Format("{0} files were found and sorted successfully, and {1} had errors. Please check the logs and fix them.", successfullyProcessedFiles, erroredFiles));
+                if (Simulate) {
+                    logger.Info(string.Format("{0} files were simulated successfully, and {1} had errors. Please check the logs and fix them.", successfullyProcessedFiles, erroredFiles));
+                } else {
+                    logger.Info(string.Format("{0} files were found and sorted successfully, and {1} had errors. Please check the logs and fix them.", successfullyProcessedFiles, erroredFiles));
+                }
             }
 
             return 0;
@@ -79,7 +88,7 @@
                     continue;
                 }
                 TagLib.File fileData = TagLib.File.Create(file);
-                if (mimeTypes.Contains(fileData.MimeType)) {
+                if (processMimeTypes.Contains(fileData.MimeType)) {
                     logger.Info("Found file: `{0}`", fileData.Name);
 
                     string seriesName = GuessSeriesName(Path.GetFileNameWithoutExtension(file));
@@ -163,7 +172,7 @@
                     } else if (System.IO.File.Exists(targetPath)) {
                         logger.Error("Target file `{0}` already exists!", targetPath);
                         erroredFiles++;
-                    } else if (Simulate || !Simulate) {
+                    } else if (Simulate) {
                         logger.Info(string.Format("Simulated: {0} -> {1}", file, targetPath));
                         successfullyProcessedFiles++;
                     } else {
