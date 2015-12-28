@@ -92,7 +92,15 @@
                 if (info.Length < 100000000) {
                     continue;
                 }
-                TagLib.File fileData = TagLib.File.Create(file);
+                TagLib.File fileData;
+                try {
+                    fileData = TagLib.File.Create(file);
+                } catch (Exception e) {
+                    logger.Error("Unable to get type of file `{0}`", file);
+                    logger.Error(e);
+                    erroredFiles++;
+                    continue;
+                }
                 if (processMimeTypes.Contains(fileData.MimeType)) {
                     logger.Debug("Found file: `{0}`", fileData.Name);
 
