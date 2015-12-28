@@ -23,7 +23,7 @@
 
             SkipsCommandSummaryBeforeRunning();
 
-            this.HasOption("s|simulate", "Simulate process (ie, don't actually move or rename files)", s => Simulate = false);
+            this.HasOption("s|simulate", "Simulate process (ie, don't actually move or rename files)", s => Simulate = true);
             this.HasOption("d|database=", "Specify database file to use instead of the default", s => DbFile = "TellySorter.db");
 
         }

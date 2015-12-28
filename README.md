@@ -73,9 +73,7 @@ automatically and added to the path during processing. :)
 
 ## To-do list
 
-At the moment, it just grabs the full series data at the point it's first run, and then never updates that list
-again. If the series is found for a file, but the episode or season don't exist in episodes, then it should try to
-get the episode data from the API. Since I don't need this myself, I haven't actually written it.
+GUI. So much GUI. >.<
 
 ## Acknowledgements
 

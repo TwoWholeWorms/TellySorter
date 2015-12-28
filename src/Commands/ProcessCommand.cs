@@ -46,6 +46,11 @@
             logger.Info("----------------------");
             logger.Info("");
 
+            if (Simulate) {
+                logger.Info("This is a simulation.");
+                logger.Info("");
+            }
+
             tvdb = new TVDB(config.ApiKey);
 
             string[] sourcePaths = SqliteManager.GetSourcePaths();
@@ -89,7 +94,7 @@
                 }
                 TagLib.File fileData = TagLib.File.Create(file);
                 if (processMimeTypes.Contains(fileData.MimeType)) {
-                    logger.Info("Found file: `{0}`", fileData.Name);
+                    logger.Debug("Found file: `{0}`", fileData.Name);
 
                     string seriesName = GuessSeriesName(Path.GetFileNameWithoutExtension(file));
                     int seasonNumber = GuessSeasonNumber(Path.GetFileNameWithoutExtension(file));
@@ -101,11 +106,11 @@
                         erroredFiles++;
                         continue;
                     }
-                    logger.Info("Guessed details:");
-                    logger.Info("    Series name: {0}", seriesName);
-                    logger.Info("    Season number: {0}", seasonNumber.ToString("D2"));
-                    logger.Info("    Episode number: {0}", episodeNumber.ToString("D2"));
-                    logger.Info("    Episode name: {0}", episodeName);
+                    logger.Debug("Guessed details:");
+                    logger.Debug("    Series name: {0}", seriesName);
+                    logger.Debug("    Season number: {0}", seasonNumber.ToString("D2"));
+                    logger.Debug("    Episode number: {0}", episodeNumber.ToString("D2"));
+                    logger.Debug("    Episode name: {0}", episodeName);
 
                     Series series = SqliteManager.FindOrCreateSeries(seriesName);
                     if (series == null) {
@@ -159,6 +164,23 @@
                         continue;
                     }
 
+                    if (episode.TvdbEpisodeId == 0) {
+                        var show = tvdb.GetShow(series.TvdbShowId);
+                        if (show == null) {
+                            logger.Error(string.Format("Unable to get series {0} from TVDB for episode s{1}e{2}", series.TvdbShowId, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
+                            erroredFiles++;
+                            continue;
+                        }
+
+                        SqliteManager.UpdateOrCreateSeriesEpisodes(series, show);
+                        episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
+                        if (episode == null) {
+                            logger.Error(string.Format("Episode s{1}e{2} of series id {0} was previously found, but can't be found any more. O.o", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
+                            erroredFiles++;
+                            continue;
+                        }
+                    }
+
                     string targetPath = targetFramework;
                     targetPath = targetPath.Replace("${seriesName}", series.Name);
                     targetPath = targetPath.Replace("${episodeName}", episode.Name);
@@ -167,13 +189,13 @@
                     targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
 
                     if (targetPath == file) {
-                        logger.Debug("File `{0}` is already where it should be :)");
-                        erroredFiles++;
+                        logger.Info("File `{0}` is already where it should be :)", file);
+                        successfullyProcessedFiles++;
                     } else if (System.IO.File.Exists(targetPath)) {
                         logger.Error("Target file `{0}` already exists!", targetPath);
                         erroredFiles++;
                     } else if (Simulate) {
-                        logger.Info(string.Format("Simulated: {0} -> {1}", file, targetPath));
+                        logger.Info(string.Format("Simulated move: {0} -> {1}", file, targetPath));
                         successfullyProcessedFiles++;
                     } else {
                         string dirTree = Path.GetDirectoryName(targetPath);
