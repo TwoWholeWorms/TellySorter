@@ -485,6 +485,26 @@
             }
         }
 
+        public static List<Rule> GetRulesByTvdbShowId(int tvdbShowId)
+        {
+            using (var cmd = database.CreateCommand()) {
+                cmd.CommandText = "SELECT [r].*, [t].[path] FROM [rules] [r] LEFT JOIN [targets] [t] ON [r].[target_path_id] = [t].[id] WHERE [r].[tvdb_show_id] = @tvdbShowId ORDER BY [type] ASC, [tvdb_show_id] ASC";
+                cmd.Parameters.Add(new SqliteParameter("@tvdbShowId", tvdbShowId));
+                logger.Trace("Executing query: {0}", cmd.CommandText);
+
+                using (var res = cmd.ExecuteReader()) {
+                    List<Rule> output = new List<Rule>();
+                    if (res.HasRows) {
+                        while (res.Read()) {
+                            output.Add(new Rule(res));
+                        }
+                    }
+
+                    return output;
+                }
+            }
+        }
+
     }
 
 }

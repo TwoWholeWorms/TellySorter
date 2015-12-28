@@ -15,6 +15,9 @@ I may also add film support and a GUI at a later date.
 
 You can preview changes without actually making them by adding the --simulate flag to your command.
 
+If you get stuck or need a hand setting things up, join #TellySorter on irc.freenode.net and I'll do my best to
+help you out.
+
 ## Getting started
 
 Step le un is to go and net yourself an API key from http://thetvdb.com/?tab=apiregister then run this command:
@@ -74,6 +77,8 @@ automatically and added to the path during processing. :)
 ## To-do list
 
 GUI. So much GUI. >.<
+
+Also, switch out TagLib for MediaInfo because TagLib doesn't properly match things.
 
 ## Acknowledgements
 
