@@ -188,7 +188,7 @@
                     targetPath = targetPath.Replace("${episodeNumberPadded}", episode.EpisodeNumber.ToString("D2"));
                     targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
 
-                    if (targetPath == file) {
+                    if (targetPath.ToLower() == file.ToLower()) {
                         logger.Info("File `{0}` is already where it should be :)", file);
                         successfullyProcessedFiles++;
                     } else if (System.IO.File.Exists(targetPath)) {
@@ -266,16 +266,18 @@
             Regex r = new Regex(@"[\. -]+");
             string guess = r.Replace(file.ToLower(), " ");
 
-            r = new Regex(@"^(?:.* )?(?:[s](\d+)[xe]\d+|(\d+)x\d+)(?: .*)?$");
+            r = new Regex(@"^(?:.* )?(?:[s](\d+)(?:[xe]\d+)?|(\d+)x\d+)(?: .*)?$");
             Match m = r.Match(guess);
 
             if (m.Success) {
                 guess = (m.Groups[1].ToString().Length >= 1 ? m.Groups[1].ToString() : m.Groups[2].ToString());
             } else {
-                guess = "";
+                guess = "0";
             }
 
-            return int.Parse(guess);
+            int output = 0;
+            int.TryParse(guess, out output);
+            return output;
         }
 
         static int GuessEpisodeNumber(string file)
@@ -289,10 +291,12 @@
             if (m.Success) {
                 guess = (m.Groups[1].ToString().Length >= 1 ? m.Groups[1].ToString() : m.Groups[2].ToString());
             } else {
-                guess = "";
+                guess = "0";
             }
 
-            return int.Parse(guess);
+            int output = 0;
+            int.TryParse(guess, out output);
+            return output;
         }
 
     }
