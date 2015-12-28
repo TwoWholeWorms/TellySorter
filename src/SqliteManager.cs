@@ -145,6 +145,13 @@
                 logger.Trace("Executing query: {0}", cmd.CommandText);
                 cmd.ExecuteNonQuery();
             }
+
+            using (var cmd = database.CreateCommand()) {
+                cmd.CommandText = "INSERT INTO [config] VALUES ('DefaultLanguage', @val);";
+                cmd.Parameters.Add(new SqliteParameter("@val", "en"));
+                logger.Trace("Executing query: {0}", cmd.CommandText);
+                cmd.ExecuteNonQuery();
+            }
         
         }
 

@@ -41,7 +41,7 @@
             config = Configuration.GetConfig(this);
 
             if (!Directory.Exists(config.DefaultTargetPath)) {
-                throw new Exception(string.Format("The default target path `{0}` does not exist.", config.DefaultTargetPath));
+                logger.Warn(string.Format("The default target path `{0}` does not exist. You should set a default target path with `set DefaultTargetPath /path/to/default/target/path` or create the directory `{0}`", config.DefaultTargetPath));
             }
 
 //            foreach (var pathConfig in config.ShowTargetPaths) {
