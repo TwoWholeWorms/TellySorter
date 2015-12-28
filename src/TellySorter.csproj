@@ -65,6 +65,9 @@
     <Compile Include="SqliteManager.cs" />
     <Compile Include="Commands\SourceCommand.cs" />
     <Compile Include="Commands\RuleCommand.cs" />
+    <Compile Include="Models\Episode.cs" />
+    <Compile Include="Models\Series.cs" />
+    <Compile Include="Models\Rule.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
@@ -74,5 +77,6 @@
   <ItemGroup>
     <Folder Include="Utilities\" />
     <Folder Include="Commands\" />
+    <Folder Include="Models\" />
   </ItemGroup>
 </Project>

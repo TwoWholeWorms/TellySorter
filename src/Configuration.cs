@@ -25,6 +25,7 @@
         public string SeasonFolderFormat { get; set; }
         public string SeriesFolderFormat { get; set; }
         public string ApiKey { get; set; }
+        public string DefaultLanguage { get; set; }
 
         public string HomePath;
 
@@ -62,13 +63,14 @@
                 current.DbFile = command.DbFile;
 
                 Configuration.command = command;
-                SqliteConnection conn = SqliteManager.GetConnection();
+                SqliteManager.GetConnection(); // Lazy init
 
                 current.DefaultTargetPath = SqliteManager.GetConfigValue("DefaultTargetPath");
                 current.EpisodeFileFormat = SqliteManager.GetConfigValue("EpisodeFileFormat");
                 current.SeasonFolderFormat = SqliteManager.GetConfigValue("SeasonFolderFormat");
                 current.SeriesFolderFormat = SqliteManager.GetConfigValue("SeriesFolderFormat");
                 current.ApiKey = SqliteManager.GetConfigValue("ApiKey");
+                current.DefaultLanguage = SqliteManager.GetConfigValue("DefaultLanguage");
             }
             return current;
 

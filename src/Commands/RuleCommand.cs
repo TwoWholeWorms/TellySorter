@@ -8,6 +8,7 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Text.RegularExpressions;
+    using TellySorter.Models;
 
     public class RuleCommand : AbstractConsoleCommand
     {
@@ -143,24 +144,24 @@
                     logger.Info("Rules:");
                     logger.Info("------");
                     logger.Info("");
-                    var res = SqliteManager.GetRules();
-                    if (!res.HasRows) {
+                    var rules = SqliteManager.GetRules();
+                    if (rules.Count < 1) {
                         logger.Info("There are no rules defined. All shows will be moved to this location:");
                         logger.Info("");
                         logger.Info("    {0}", Path.Combine(config.DefaultTargetPath, Path.Combine(config.SeriesFolderFormat, Path.Combine(config.SeasonFolderFormat, config.EpisodeFileFormat))));
                     } else {
-                        while (res.Read()) {
-                            switch (res["type"].ToString()) {
+                        foreach (var rule in rules) {
+                            switch (rule.Type) {
                                 case "ignore":
-                                    logger.Info(string.Format("Ignore: Show id `{0}`", res["tvdb_show_id"]));
+                                    logger.Info(string.Format("Ignore: TVDB show id `{0}`", rule.TvdbShowId));
                                     break;
 
                                 case "target":
-                                    logger.Info(string.Format("Show-specific target: Show id `{0}` to path `{1}`", res["tvdb_show_id"], res["path"]));
+                                    logger.Info(string.Format("Show-specific target: TVDB show id `{0}` to path `{1}`", rule.TvdbShowId, rule.Path));
                                     break;
 
                                 default:
-                                    logger.Info(string.Format("Rule id `{0}` has an unknown type `{1}`", res["id"], res["type"]));
+                                    logger.Info(string.Format("Rule id `{0}` has an unknown type `{1}`", rule.Id, rule.Type));
                                     break;
                             }
                         }

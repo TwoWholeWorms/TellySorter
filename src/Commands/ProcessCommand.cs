@@ -7,8 +7,9 @@
     using System.IO;
     using System.Collections.Generic;
     using System.Text.RegularExpressions;
-    using TVDBSharp;
     using TagLib;
+    using TellySorter.Models;
+    using TVDBSharp;
 
     public class ProcessCommand : AbstractConsoleCommand
     {
@@ -20,6 +21,13 @@
             "taglib/mkv",
             "taglib/mp4",
         };
+
+        TVDB tvdb;
+
+        int successfullyProcessedFiles = 0;
+        int erroredFiles = 0;
+
+        List<string> failedNames = new List<string>();
 
         public ProcessCommand() : base()
         {
@@ -37,29 +45,39 @@
             logger.Info("----------------------");
             logger.Info("");
 
-            var tvdb = new TVDB(config.ApiKey);
+            tvdb = new TVDB(config.ApiKey);
 
-            using (var sourcePathsRes = SqliteManager.GetSourcePaths()) {
-                if (!sourcePathsRes.HasRows) {
-                    throw new ConsoleHelpAsException("You haven't added any source paths to process yet.  Use the source command to add at least one source path to find files in to process.");
-                } else {
-                    while (sourcePathsRes.Read()) {
-                        ProcessDirectory(sourcePathsRes["path"].ToString());
-                    }
+            string[] sourcePaths = SqliteManager.GetSourcePaths();
+            if (sourcePaths.Length < 1) {
+                throw new ConsoleHelpAsException("You haven't added any source paths to process yet.  Use the source command to add at least one source path to find files in to process.");
+            } else {
+                foreach (string path in sourcePaths) {
+                    ProcessDirectory(path);
                 }
             }
 
             logger.Info("");
-            logger.Info("Woooo! Congratulations, your TV episodes are all sorted now! :D");
+            if (erroredFiles < 1) {
+                logger.Info("Woooo! {0} files were found and sorted successfully!", successfullyProcessedFiles);
+            } else {
+                logger.Info(string.Format("{0} files were found and sorted successfully, and {1} had errors. Please check the logs and fix them.", successfullyProcessedFiles, erroredFiles));
+            }
 
             return 0;
 
         }
 
-        static void ProcessDirectory(string path)
+        void ProcessDirectory(string path)
         {
+            string targetFramework = Path.Combine(config.DefaultTargetPath, Path.Combine(config.SeriesFolderFormat, Path.Combine(config.SeasonFolderFormat, config.EpisodeFileFormat)));
+
             string[] files = Directory.GetFiles(path);
             foreach (var file in files) {
+                FileInfo info = new FileInfo(file);
+                // Ignore anything under about 100MB
+                if (info.Length < 100000000) {
+                    continue;
+                }
                 TagLib.File fileData = TagLib.File.Create(file);
                 if (mimeTypes.Contains(fileData.MimeType)) {
                     logger.Info("Found file: `{0}`", fileData.Name);
@@ -69,25 +87,109 @@
                     int episodeNumber = GuessEpisodeNumber(Path.GetFileNameWithoutExtension(file));
                     string episodeName = GuessEpisodeName(Path.GetFileNameWithoutExtension(file));
 
+                    if (seasonNumber < 1 && episodeNumber < 1) {
+                        logger.Error("Unable to establish a season number or an episode number for file `{0}`", file);
+                        erroredFiles++;
+                        continue;
+                    }
                     logger.Info("Guessed details:");
                     logger.Info("    Series name: {0}", seriesName);
-                    logger.Info("    Season number: {0}", seasonNumber);
-                    logger.Info("    Episode number: {0}", episodeNumber);
+                    logger.Info("    Season number: {0}", seasonNumber.ToString("D2"));
+                    logger.Info("    Episode number: {0}", episodeNumber.ToString("D2"));
                     logger.Info("    Episode name: {0}", episodeName);
 
-//                    MediaInfo mInfo = new MediaInfo();
-//                    mInfo.Open(file);
-//                    foreach (var item in mInfo.Option("")) {
-//                        logger.Debug(item);
-//                    }
-                    // Type type = fileData.Tag.GetType();
-                    // foreach (var prop in type.GetProperties()) {
-                    //     logger.Info(string.Format("    Tag: {0} = {1}", prop.Name, prop.GetValue(fileData.Tag, null)));
-                    // }
-                    // Type pType = fileData.Properties.GetType();
-                    // foreach (var prop in pType.GetProperties()) {
-                    //     logger.Info(string.Format("    Property: {0} = {1}", prop.Name, prop.GetValue(fileData.Properties, null)));
-                    // }
+                    Series series = SqliteManager.FindOrCreateSeries(seriesName);
+                    if (series == null) {
+                        logger.Error("Unable to find or create a series for `{0}`", seriesName);
+                        erroredFiles++;
+                        continue;
+                    }
+
+                    if (failedNames.Contains(seriesName)) {
+                        logger.Error(string.Format("`{0}` belongs to previously failed series `{1}`", file, seriesName));
+                        erroredFiles++;
+                        continue;
+                    }
+
+                    if (series.TvdbShowId == 0) {
+                        // Get the series info from the TV DB
+                        var results = tvdb.Search(seriesName, 5);
+                        bool found = false;
+                        foreach (var result in results) {
+                            if (result.Name.ToLower() == seriesName) {
+                                series.CompleteWith(result);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            foreach (var result in results) {
+                                if (result.Language == config.DefaultLanguage && result.Name.Contains(seriesName)) {
+                                    series.CompleteWith(result);
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            logger.Error("Unable to match series name `{0}` with any of the following results:", seriesName);
+                            foreach (var result in results) {
+                                logger.Error(string.Format("    #{0} {1} ({2})", result.Id, result.Name, result.Language));
+                            }
+                            logger.Error("Use `set ShowId {0} <tvdbShowId>` with one of the numbers from the list above to set the TV DB show id to that show id", series.Id);
+                            erroredFiles++;
+                            failedNames.Add(seriesName);
+                            continue;
+                        }
+                    }
+
+                    Episode episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
+                    if (episode == null) {
+                        logger.Error(string.Format("Unable to find or create an episode for series id {0} s{1}e{2}", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
+                        erroredFiles++;
+                        continue;
+                    }
+
+                    string targetPath = targetFramework;
+                    targetPath = targetPath.Replace("${seriesName}", series.Name);
+                    targetPath = targetPath.Replace("${episodeName}", episode.Name);
+                    targetPath = targetPath.Replace("${seasonNumberPadded}", episode.SeasonNumber.ToString("D2"));
+                    targetPath = targetPath.Replace("${episodeNumberPadded}", episode.EpisodeNumber.ToString("D2"));
+                    targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
+
+                    if (targetPath == file) {
+                        logger.Debug("File `{0}` is already where it should be :)");
+                        erroredFiles++;
+                    } else if (System.IO.File.Exists(targetPath)) {
+                        logger.Error("Target file `{0}` already exists!", targetPath);
+                        erroredFiles++;
+                    } else if (Simulate || !Simulate) {
+                        logger.Info(string.Format("Simulated: {0} -> {1}", file, targetPath));
+                        successfullyProcessedFiles++;
+                    } else {
+                        string dirTree = Path.GetDirectoryName(targetPath);
+                        if (!Directory.Exists(dirTree)) {
+                            try {
+                                logger.Debug("Creating directory `{0}`", dirTree);
+                                Directory.CreateDirectory(dirTree);
+                            } catch (Exception e) {
+                                logger.Error("Unable to create directory `{0}`", dirTree);
+                                logger.Error(e);
+                                erroredFiles++;
+                                continue;
+                            }
+                        }
+                        try {
+                            System.IO.File.Move(file, targetPath);
+                        } catch (Exception e) {
+                            logger.Error(string.Format("Unable to move file `{0}` to `{1}`", file, targetPath));
+                            logger.Error(e);
+                            erroredFiles++;
+                            continue;
+                        }
+                        logger.Info(string.Format("Moved: {0} -> {1}", file, targetPath));
+                        successfullyProcessedFiles++;
+                    }
                 }
             }
 
@@ -95,34 +197,7 @@
             foreach (var dir in subDirs) {
                 ProcessDirectory(dir);
             }
-            /*var dirs = TraverseTree(sourcePathsRes["path"].ToString());
-            foreach (var dir in dirs) {
 
-                string[] files = null;
-                try {
-                    files = System.IO.Directory.GetFiles(dir);
-                } catch (UnauthorizedAccessException e) {
-                    logger.Warn("{0}: Permission denied", dir);
-                    continue;
-                } catch (DirectoryNotFoundException e) {
-                    logger.Warn("{0}: Directory was deleted or moved(?!)", dir);
-                    continue;
-                }
-                foreach (string file in files) {
-                    try {
-                        // Identify the file
-                        TagLib.File fileData = TagLib.File.Create(file);
-                        logger.Info("Found file: `{0}`", fileData.Name);
-                    } catch (FileNotFoundException e) {
-                        // If file was deleted by a separate application
-                        //  or thread since the call to TraverseTree()
-                        // then just continue.
-                        logger.Warn("{0}: File was deleted or moved(?!)", file);
-                        continue;
-                    }
-                }
-
-            }*/
         }
 
         static string GuessSeriesName(string file)
@@ -188,47 +263,6 @@
 
             return int.Parse(guess);
         }
-
-        /*static void WalkDirectoryTree(DirectoryInfo root)
-        {
-            
-            FileInfo[] files = null;
-            DirectoryInfo[] subDirs = null;
-
-            // First, process all the files directly under this folder
-            try {
-                files = root.GetFiles("*.*");
-            }
-            // This is thrown if even one of the files requires permissions greater
-            // than the application provides.
-            catch (UnauthorizedAccessException e) {
-                // This code just writes out the message and continues to recurse.
-                // You may decide to do something different here. For example, you
-                // can try to elevate your privileges and access the file again.
-                log.Add(e.Message);
-            } catch (DirectoryNotFoundException e) {
-                Console.WriteLine(e.Message);
-            }
-
-            if (files != null) {
-                foreach (FileInfo fi in files) {
-                    // In this example, we only access the existing FileInfo object. If we
-                    // want to open, delete or modify the file, then
-                    // a try-catch block is required here to handle the case
-                    // where the file has been deleted since the call to TraverseTree().
-                    Console.WriteLine(fi.FullName);
-                }
-
-                // Now find all the subdirectories under this directory.
-                subDirs = root.GetDirectories();
-
-                foreach (DirectoryInfo dirInfo in subDirs) {
-                    // Resursive call for each subdirectory.
-                    WalkDirectoryTree(dirInfo);
-                }
-            }
-
-        }*/
 
     }
 

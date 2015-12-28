@@ -86,12 +86,12 @@
                     logger.Info("Source paths:");
                     logger.Info("-------------");
                     logger.Info("");
-                    var res = SqliteManager.GetSourcePaths();
-                    if (!res.HasRows) {
+                    string[] paths = SqliteManager.GetSourcePaths();
+                    if (paths.Length < 1) {
                         logger.Info("You haven't added any paths yet");
                     } else {
-                        while (res.Read()) {
-                            logger.Info("{0}", res["path"]);
+                        foreach (string path in paths) {
+                            logger.Info("{0}", path);
                         }
                     }
 
