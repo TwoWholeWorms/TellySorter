@@ -39,7 +39,7 @@
             
             Initialise();
 
-            if (remainingArguments.Length <= 2) {
+            if (remainingArguments.Length < 2) {
                 throw new ConsoleHelpAsException("The variable name and value are required");
             }
 
