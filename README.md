@@ -75,6 +75,8 @@ automatically and added to the path during processing. :)
 
 GUI. So much GUI. >.<
 
+Also, switch out TagLib for MediaInfo because TagLib doesn't properly match things.
+
 ## Acknowledgements
 
 Props to Jer Vannevel for [TVDBSharp](https://github.com/Vannevelj/TVDBSharp), and to
