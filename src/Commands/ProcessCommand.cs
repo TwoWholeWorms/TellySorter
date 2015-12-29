@@ -11,6 +11,11 @@
     using TellySorter.Models;
     using TVDBSharp;
 
+    /**
+     * So, firstly, apologies for how disgusting the code is in here. It was written /very/ quickly over Christmas
+     * in the time between the moments when I was trying not to murder my relatives, though that's not really an
+     * excuse. Anyway, it works, it could just do with a /lot/ of cleaning up.
+     */
     public class ProcessCommand : AbstractConsoleCommand
     {
 
@@ -19,6 +24,7 @@
         // This list contains only stuff we actually want to process
         readonly static List<string> processMimeTypes = new List<string>() {
             "taglib/avi",
+            "taglib/m4v",
             "taglib/mkv",
             "taglib/mp4",
         };
@@ -96,163 +102,167 @@
                 try {
                     fileData = TagLib.File.Create(file);
                 } catch (Exception e) {
-                    logger.Error("Unable to get type of file `{0}`", file);
+                    logger.Error("Unable to get media info for file `{0}`", file);
                     logger.Error(e);
                     erroredFiles++;
                     continue;
                 }
-                if (processMimeTypes.Contains(fileData.MimeType)) {
-                    logger.Debug("Found file: `{0}`", fileData.Name);
+                logger.Debug("Mime type: `{0}`", fileData.MimeType);
+                if (!processMimeTypes.Contains(fileData.MimeType)) {
+                    logger.Trace("Skipping file `{0}` because it's not in the process formats list.", file);
+                    continue;
+                }
 
-                    string seriesName = GuessSeriesName(Path.GetFileNameWithoutExtension(file));
-                    int seasonNumber = GuessSeasonNumber(Path.GetFileNameWithoutExtension(file));
-                    int episodeNumber = GuessEpisodeNumber(Path.GetFileNameWithoutExtension(file));
-                    string episodeName = GuessEpisodeName(Path.GetFileNameWithoutExtension(file));
+                logger.Debug("Found file: `{0}`", file);
 
-                    if (seasonNumber < 1 && episodeNumber < 1) {
-                        logger.Error("Unable to establish a season number or an episode number for file `{0}`", file);
-                        erroredFiles++;
-                        continue;
-                    }
-                    logger.Debug("Guessed details:");
-                    logger.Debug("    Series name: {0}", seriesName);
-                    logger.Debug("    Season number: {0}", seasonNumber.ToString("D2"));
-                    logger.Debug("    Episode number: {0}", episodeNumber.ToString("D2"));
-                    logger.Debug("    Episode name: {0}", episodeName);
+                string seriesName = GuessSeriesName(file);
+                int seasonNumber = GuessSeasonNumber(file);
+                int episodeNumber = GuessEpisodeNumber(file);
+                string episodeName = GuessEpisodeName(file);
 
-                    Series series = SqliteManager.FindOrCreateSeries(seriesName);
-                    if (series == null) {
-                        logger.Error("Unable to find or create a series for `{0}`", seriesName);
-                        erroredFiles++;
-                        continue;
-                    }
+                if (seasonNumber < 1 && episodeNumber < 1) {
+                    logger.Error("Unable to establish a season number or an episode number for file `{0}`", file);
+                    erroredFiles++;
+                    continue;
+                }
+                logger.Debug("Guessed details:");
+                logger.Debug("    Series name: {0}", seriesName);
+                logger.Debug("    Season number: {0}", seasonNumber.ToString("D2"));
+                logger.Debug("    Episode number: {0}", episodeNumber.ToString("D2"));
+                logger.Debug("    Episode name: {0}", episodeName);
 
-                    if (failedNames.Contains(seriesName)) {
-                        logger.Error(string.Format("`{0}` belongs to previously failed series `{1}`", file, seriesName));
-                        erroredFiles++;
-                        continue;
-                    }
+                Series series = SqliteManager.FindOrCreateSeries(seriesName);
+                if (series == null) {
+                    logger.Error("Unable to find or create a series for `{0}`", seriesName);
+                    erroredFiles++;
+                    continue;
+                }
 
-                    if (series.TvdbShowId == 0) {
-                        try {
-                            // Get the series info from the TV DB
-                            var results = tvdb.Search(seriesName, 5);
-                            bool found = false;
+                if (failedNames.Contains(seriesName)) {
+                    logger.Error(string.Format("`{0}` belongs to previously failed series `{1}`", file, seriesName));
+                    erroredFiles++;
+                    continue;
+                }
+
+                if (series.TvdbShowId == 0) {
+                    try {
+                        // Get the series info from the TV DB
+                        var results = tvdb.Search(seriesName, 5);
+                        bool found = false;
+                        foreach (var result in results) {
+                            if (result.Name.ToLower() == seriesName) {
+                                series.CompleteWith(result);
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        // Nice matching failed, now let's get MESSY!
+                        Regex r = new Regex("[^a-zA-Z0-9]+");
+                        if (!found) {
                             foreach (var result in results) {
-                                if (result.Name.ToLower() == seriesName) {
+                                if (result.Language == config.DefaultLanguage && r.Replace(result.Name.ToLower(), "") == r.Replace(seriesName.ToLower(), "")) {
                                     series.CompleteWith(result);
                                     found = true;
                                     break;
                                 }
                             }
+                        }
 
-                            // Nice matching failed, now let's get MESSY!
-                            Regex r = new Regex("[^a-zA-Z0-9]+");
-                            if (!found) {
-                                foreach (var result in results) {
-                                    if (result.Language == config.DefaultLanguage && r.Replace(result.Name.ToLower(), "") == r.Replace(seriesName.ToLower(), "")) {
-                                        series.CompleteWith(result);
-                                        found = true;
-                                        break;
-                                    }
-                                }
+                        if (!found) {
+                            logger.Error("Unable to match series name `{0}` with any of the following results:", seriesName);
+                            foreach (var result in results) {
+                                logger.Error(string.Format("    #{0} {1} ({2})", result.Id, result.Name, result.Language));
                             }
-
-                            if (!found) {
-                                logger.Error("Unable to match series name `{0}` with any of the following results:", seriesName);
-                                foreach (var result in results) {
-                                    logger.Error(string.Format("    #{0} {1} ({2})", result.Id, result.Name, result.Language));
-                                }
-                                logger.Error("Use `set ShowId {0} <tvdbShowId>` with one of the numbers from the list above to set the TV DB show id to that show id", series.Id);
-                                erroredFiles++;
-                                failedNames.Add(seriesName);
-                                continue;
-                            }
-                        } catch (Exception e) {
-                            logger.Error("Something went horrifically wrong whilst trying to get the series data for file `{0}`", file);
-                            logger.Error(e);
+                            logger.Error("Use `set ShowId {0} <tvdbShowId>` with one of the numbers from the list above to set the TV DB show id to that show id", series.Id);
                             erroredFiles++;
                             failedNames.Add(seriesName);
                             continue;
                         }
+                    } catch (Exception e) {
+                        logger.Error("Something went horrifically wrong whilst trying to get the series data for file `{0}`", file);
+                        logger.Error(e);
+                        erroredFiles++;
+                        failedNames.Add(seriesName);
+                        continue;
                     }
+                }
 
-                    Episode episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
-                    if (episode == null) {
-                        logger.Error(string.Format("Unable to find or create an episode for series id {0} s{1}e{2}", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
+                Episode episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
+                if (episode == null) {
+                    logger.Error(string.Format("Unable to find or create an episode for series id {0} s{1}e{2}", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
+                    erroredFiles++;
+                    continue;
+                }
+
+                if (episode.TvdbEpisodeId == 0) {
+                    var show = tvdb.GetShow(series.TvdbShowId);
+                    if (show == null) {
+                        logger.Error(string.Format("Unable to get series {0} from TVDB for episode s{1}e{2}", series.TvdbShowId, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
                         erroredFiles++;
                         continue;
                     }
 
-                    if (episode.TvdbEpisodeId == 0) {
-                        var show = tvdb.GetShow(series.TvdbShowId);
-                        if (show == null) {
-                            logger.Error(string.Format("Unable to get series {0} from TVDB for episode s{1}e{2}", series.TvdbShowId, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
-                            erroredFiles++;
-                            continue;
-                        }
-
-                        SqliteManager.UpdateOrCreateSeriesEpisodes(series, show);
-                        episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
-                        if (episode == null) {
-                            logger.Error(string.Format("Episode s{1}e{2} of series id {0} was previously found, but can't be found any more. O.o", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
-                            erroredFiles++;
-                            continue;
-                        }
-                    }
-
-                    string targetPath = targetFramework;
-                    targetPath = targetPath.Replace("${seriesName}", series.Name);
-                    targetPath = targetPath.Replace("${episodeName}", episode.Name);
-                    targetPath = targetPath.Replace("${seasonNumberPadded}", episode.SeasonNumber.ToString("D2"));
-                    targetPath = targetPath.Replace("${episodeNumberPadded}", episode.EpisodeNumber.ToString("D2"));
-                    targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
-
-                    string basePath = config.DefaultTargetPath;
-                    var rules = SqliteManager.GetRulesByTvdbShowId(series.TvdbShowId);
-                    if (rules.Count > 0) {
-                        foreach (var rule in rules) {
-                            if (rule.Type == "target") {
-                                basePath = rule.Path;
-                                break;
-                            }
-                        }
-                    }
-
-                    string finalLocation = Path.Combine(basePath, targetPath);
-                    if (finalLocation.ToLower() == file.ToLower()) {
-                        logger.Info("File `{0}` is already where it should be :)", file);
-                        successfullyProcessedFiles++;
-                    } else if (System.IO.File.Exists(finalLocation)) {
-                        logger.Error("Target file `{0}` already exists!", finalLocation);
+                    SqliteManager.UpdateOrCreateSeriesEpisodes(series, show);
+                    episode = SqliteManager.FindOrCreateEpisode(series, seasonNumber, episodeNumber);
+                    if (episode == null) {
+                        logger.Error(string.Format("Episode s{1}e{2} of series id {0} was previously found, but can't be found any more. O.o", series.Id, seasonNumber.ToString("D2"), episodeNumber.ToString("D2")));
                         erroredFiles++;
-                    } else if (Simulate) {
-                        logger.Info(string.Format("Simulated move: {0} -> {1}", file, finalLocation));
-                        successfullyProcessedFiles++;
-                    } else {
-                        string dirTree = Path.GetDirectoryName(finalLocation);
-                        if (!Directory.Exists(dirTree)) {
-                            try {
-                                logger.Debug("Creating directory `{0}`", dirTree);
-                                Directory.CreateDirectory(dirTree);
-                            } catch (Exception e) {
-                                logger.Error("Unable to create directory `{0}`", dirTree);
-                                logger.Error(e);
-                                erroredFiles++;
-                                continue;
-                            }
+                        continue;
+                    }
+                }
+
+                string targetPath = targetFramework;
+                targetPath = targetPath.Replace("${seriesName}", series.Name);
+                targetPath = targetPath.Replace("${episodeName}", episode.Name);
+                targetPath = targetPath.Replace("${seasonNumberPadded}", episode.SeasonNumber.ToString("D2"));
+                targetPath = targetPath.Replace("${episodeNumberPadded}", episode.EpisodeNumber.ToString("D2"));
+                targetPath = targetPath.Replace("${fileExtension}", Path.GetExtension(file));
+
+                string basePath = config.DefaultTargetPath;
+                var rules = SqliteManager.GetRulesByTvdbShowId(series.TvdbShowId);
+                if (rules.Count > 0) {
+                    foreach (var rule in rules) {
+                        if (rule.Type == "target") {
+                            basePath = rule.Path;
+                            break;
                         }
+                    }
+                }
+
+                string finalLocation = Path.Combine(basePath, targetPath);
+                if (finalLocation.ToLower() == file.ToLower()) {
+                    logger.Info("File `{0}` is already where it should be :)", file);
+                    successfullyProcessedFiles++;
+                } else if (System.IO.File.Exists(finalLocation)) {
+                    logger.Error("Target file `{0}` already exists!", finalLocation);
+                    erroredFiles++;
+                } else if (Simulate) {
+                    logger.Info(string.Format("Simulated move: {0} -> {1}", file, finalLocation));
+                    successfullyProcessedFiles++;
+                } else {
+                    string dirTree = Path.GetDirectoryName(finalLocation);
+                    if (!Directory.Exists(dirTree)) {
                         try {
-                            System.IO.File.Move(file, finalLocation);
+                            logger.Debug("Creating directory `{0}`", dirTree);
+                            Directory.CreateDirectory(dirTree);
                         } catch (Exception e) {
-                            logger.Error(string.Format("Unable to move file `{0}` to `{1}`", file, finalLocation));
+                            logger.Error("Unable to create directory `{0}`", dirTree);
                             logger.Error(e);
                             erroredFiles++;
                             continue;
                         }
-                        logger.Info(string.Format("Moved: {0} -> {1}", file, finalLocation));
-                        successfullyProcessedFiles++;
                     }
+                    try {
+                        System.IO.File.Move(file, finalLocation);
+                    } catch (Exception e) {
+                        logger.Error(string.Format("Unable to move file `{0}` to `{1}`", file, finalLocation));
+                        logger.Error(e);
+                        erroredFiles++;
+                        continue;
+                    }
+                    logger.Info(string.Format("Moved: {0} -> {1}", file, finalLocation));
+                    successfullyProcessedFiles++;
                 }
             }
 
@@ -263,25 +273,44 @@
 
         }
 
-        static string GuessSeriesName(string file)
+        string GuessSeriesName(string file)
         {
+            string guessFrom = file.Replace(config.DefaultTargetPath, "").ToLower().TrimStart(Path.DirectorySeparatorChar);
+            guessFrom = guessFrom.TrimStart(Path.DirectorySeparatorChar);
+
             Regex r = new Regex(@"[\. -]+");
-            string guess = r.Replace(file.ToLower(), " ");
+            string startWith = r.Replace(Path.GetFileNameWithoutExtension(guessFrom), " ");
 
-            r = new Regex(@"^(?:(.*) )?([s]\d+ ?[xe]\d+|\d+x\d+|season \d+ episode \d+)(?: (.*))?$");
-            Match m = r.Match(guess);
-
+            string guess = "";
+            r = new Regex(@"^(?:(?<seriesName1>.+) )?([s](?<seasonNumber2>\d+) ?[xe](?<episodeNumber1>\d+)|(?<seasonNumber3>\d+)x(?<episodeNumber2>\d+)|season (?<seasonNumber4>\d+) episode (?<episodeNumber3>\d+))(?: (?<episodeName>.*))?$");
+            Match m = r.Match(startWith);
             if (m.Success) {
-                guess = m.Groups[1].ToString();
+                guess = m.Groups["seriesName1"].ToString();
+            }
+
+            r = new Regex(@"[^a-zA-Z0-9]+");
+            if (r.Replace(guess, "").Length < 1) {
+                // Try guessing from the folder names
+                logger.Trace("Using messy series name matching");
+                string[] bits = guessFrom.Split(Path.DirectorySeparatorChar);
+                if (bits.Length == 2) {
+                    // First element is /probably/ the series name, and the second bit is the episode file, so just return [0]
+                    guess = bits[0];
+                } else if (bits.Length == 3) {
+                    if (bits[1].Contains("season")) {
+                        // First element is /probably/ the series name, the second bit the season number, and the last bit is most likely the episode file, so just return [0]
+                        guess = bits[0];
+                    }
+                }
             }
 
             return guess;
         }
 
-        static string GuessEpisodeName(string file)
+        string GuessEpisodeName(string file)
         {
             Regex r = new Regex(@"[\. -]+");
-            string guess = r.Replace(file.ToLower(), " ");
+            string guess = r.Replace(Path.GetFileNameWithoutExtension(file.ToLower()), " ");
 
             r = new Regex(@"^(?:.* )?(?:[s]\d+ ?[xe]\d+|\d+x\d+|season \d+ episode \d+)(?: (.*))?$");
             Match m = r.Match(guess);
@@ -293,17 +322,48 @@
             return guess;
         }
 
-        static int GuessSeasonNumber(string file)
+        int GuessSeasonNumber(string file)
         {
             Regex r = new Regex(@"[\. -]+");
-            string guess = r.Replace(file.ToLower(), " ");
+            string startWith = r.Replace(Path.GetFileNameWithoutExtension(file.ToLower()), " ");
 
-            r = new Regex(@"^(?:.* )?(?:[s](\d+) ?(?:[xe]\d+)?|(\d+)x\d+|season (\d+)(?:.*episode \d+)?)(?: .*)?$");
-            Match m = r.Match(guess);
+            r = new Regex(@"^(?:(?<seriesName1>.+) )?([s](?<seasonNumber1>\d+) ?[xe](?<episodeNumber1>\d+)|(?<seasonNumber2>\d+)x(?<episodeNumber2>\d+)|season (?<seasonNumber3>\d+) episode (?<episodeNumber3>\d+))(?: (?<episodeName>.*))?$");
+            Match m = r.Match(startWith);
 
+            string guess = "";
+            m = r.Match(startWith);
             if (m.Success) {
-                guess = (m.Groups[1].ToString().Length >= 1 ? m.Groups[1].ToString() : (m.Groups[2].ToString().Length >= 1 ? m.Groups[2].ToString() : m.Groups[3].ToString()));
-            } else {
+                if (m.Groups["seasonNumber1"].ToString().Length > 0) {
+                    guess = m.Groups["seasonNumber1"].ToString();
+                } else if (m.Groups["seasonNumber2"].ToString().Length > 0) {
+                    guess = m.Groups["seasonNumber2"].ToString();
+                } else if (m.Groups["seasonNumber3"].ToString().Length > 0) {
+                    guess = m.Groups["seasonNumber3"].ToString();
+                }
+            }
+
+            if (guess == "") {
+                string guessFrom = file.Replace(config.DefaultTargetPath, "").ToLower().TrimStart(Path.DirectorySeparatorChar);
+                r = new Regex(@"^(?:(?<seriesName2>.+) )?(season (?<seasonNumber4>\d+) )?(?:(?<seriesName1>.+) )?([s](?<seasonNumber1>\d+) ?[xe](?<episodeNumber1>\d+)|(?<seasonNumber2>\d+)x(?<episodeNumber2>\d+)|season (?<seasonNumber3>\d+) episode (?<episodeNumber3>\d+))(?: (?<episodeName>.*))?$");
+                m = r.Match(guessFrom);
+                if (m.Success) {
+                    if (m.Groups["seasonNumber4"].ToString().Length > 0) {
+                        guess = m.Groups["seasonNumber4"].ToString();
+                    }
+                } else {
+                    string[] bits = guessFrom.Split(Path.DirectorySeparatorChar);
+                    if (bits.Length == 3) {
+                        // First element is /probably/ the series name, the second bit the season number, and the last bit is most likely the episode file, so we do our best to extract the season number from the second bit
+                        r = new Regex(@"^.*s(?:eason ?)?(\d+).*$");
+                        m = r.Match(bits[1]);
+                        if (m.Success) {
+                            guess = m.Groups[1].ToString();
+                        }
+                    }
+                }
+            }
+
+            if (guess == "") {
                 guess = "0";
             }
 
@@ -312,10 +372,10 @@
             return output;
         }
 
-        static int GuessEpisodeNumber(string file)
+        int GuessEpisodeNumber(string file)
         {
             Regex r = new Regex(@"[\. -]+");
-            string guess = r.Replace(file.ToLower(), " ");
+            string guess = r.Replace(Path.GetFileNameWithoutExtension(file.ToLower()), " ");
 
             r = new Regex(@"^(?:.* )?(?:[s]\d+ ?[xe](\d+)|\d+x(\d+)|season \d+.*episode (\d+))(?: .*)?$");
             Match m = r.Match(guess);
@@ -323,7 +383,13 @@
             if (m.Success) {
                 guess = (m.Groups[1].ToString().Length >= 1 ? m.Groups[1].ToString() : (m.Groups[2].ToString().Length >= 1 ? m.Groups[2].ToString() : m.Groups[3].ToString()));
             } else {
-                guess = "0";
+                r = new Regex(@"^(\d+).*$");
+                m = r.Match(guess);
+                if (m.Success) {
+                    guess = m.Groups[0].ToString();
+                } else {
+                    guess = "0";
+                }
             }
 
             int output = 0;
